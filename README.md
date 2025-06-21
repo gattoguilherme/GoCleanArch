@@ -1,6 +1,108 @@
 # Go Clean Architecture API
 
-This project is a REST API built in Go, demonstrating the principles of Clean Architecture. It provides a foundation for building scalable, maintainable, and testable web services. The API exposes two endpoints: one for creating orders (which sends a message to a message queue) and another for retrieving order details from a database.
+A robust, production-ready REST API for order management, built with Go and Clean Architecture principles. This project demonstrates separation of concerns, testability, and scalability, with real-world features like MySQL, AWS SQS, and full mocking for development.
+
+---
+
+## Table of Contents
+1. [Project Overview](#project-overview)
+2. [Architecture](#architecture)
+3. [Code Structure](#code-structure)
+4. [Use Case Flowcharts](#use-case-flowcharts)
+5. [API Endpoints & Examples](#api-endpoints--examples)
+6. [Configuration](#configuration)
+7. [How to Run](#how-to-run)
+8. [Testing](#testing)
+9. [Database Schema](#database-schema)
+10. [Containerization with Docker](#containerization-with-docker)
+11. [Contributing](#contributing)
+
+---
+
+## Project Overview
+
+This API manages customer orders and demonstrates how to build scalable, maintainable Go web services using Clean Architecture. It supports full mocking for development and real integrations (MySQL, AWS SQS) for production.
+
+
+This project is a REST API built in Go, demonstrating the principles of Clean Architecture. It provides a foundation for building scalable, maintainable, and testable web services. ## API Endpoints & Examples
+
+### POST /orders
+Create a new order (sends a message to the message queue).
+
+- **Method:** POST
+- **Route:** `/orders`
+- **Request Body:**
+  ```json
+  {
+    "Data": "string",
+    "OrderId": 123,
+    "Status": "string"
+  }
+  ```
+- **Response (201 Created):**
+  ```json
+  {
+    "OrderID": 123,
+    "Status": "string",
+    "Paid": false
+  }
+  ```
+- **Example:**
+  ```bash
+  curl -X POST http://localhost:8090/orders \
+    -H "Content-Type: application/json" \
+    -d '{"Data":"2025-06-23","OrderId":456,"Status":"New"}'
+  ```
+
+---
+
+### GET /orders/{orderId}
+Retrieve order details by ID.
+
+- **Method:** GET
+- **Route:** `/orders/{orderId}`
+- **Response (200 OK):**
+  ```json
+  {
+    "OrderID": 123,
+    "Status": "Complete",
+    "Paid": true
+  }
+  ```
+- **Example:**
+  ```bash
+  curl http://localhost:8090/orders/123
+  ```
+
+---
+
+### GET /orders
+Retrieve all orders (returns an array).
+
+- **Method:** GET
+- **Route:** `/orders`
+- **Response (200 OK):**
+  ```json
+  [
+    {
+      "id": "string",
+      "Data": "string",
+      "OrderId": 123,
+      "Status": "string",
+      "Paid": true,
+      "created_at": "2025-06-23T00:00:00Z",
+      "updated_at": "2025-06-23T00:00:00Z"
+    },
+    ...
+  ]
+  ```
+- **Example:**
+  ```bash
+  curl http://localhost:8090/orders
+  ```
+
+---
+
 
 ## Table of Contents
 1.  [Clean Architecture](#clean-architecture)
@@ -16,32 +118,123 @@ This project is a REST API built in Go, demonstrating the principles of Clean Ar
 6.  [Database Schema](#database-schema)
 7.  [Containerization with Docker](#containerization-with-docker)
 
-## Clean Architecture
+## Architecture
 
-For those new to Go and software architecture, the Clean Architecture is a design philosophy that separates the concerns of a software project into distinct layers. This separation makes the system easier to understand, test, and maintain over time.
+This project follows the principles of Clean Architecture, ensuring that business logic is decoupled from frameworks, databases, and external services. The main layers are:
 
-The core principle is the **Dependency Rule**: *source code dependencies can only point inwards*. Nothing in an inner circle can know anything at all about something in an outer circle.
+- **Entities**: Core business objects (domain models)
+- **Use Cases**: Application-specific business rules
+- **Interface Adapters**: HTTP handlers, database and messaging adapters
+- **Frameworks & Drivers**: External libraries, main entrypoint, configuration
 
-This project implements the following layers, from innermost to outermost:
+**Dependency Rule:** All dependencies point inward. Inner layers know nothing about outer layers.
 
-1.  **Entities (`internal/domain/entity`)**: These are the core business objects of the application. In our case, this is the `Order` struct. They are the most general and high-level concepts and have no dependencies on any other layer.
+```mermaid
+graph TD
+    A[Frameworks & Drivers\n(cmd, configs, external)] --> B[Interface Adapters\n(infra/handler, infra/database, infra/messaging)]
+    B --> C[Use Cases\n(internal/usecase)]
+    C --> D[Entities\n(internal/domain/entity)]
+```
 
-2.  **Use Cases (`internal/usecase`)**: This layer contains the application-specific business rules. It orchestrates the flow of data to and from the entities. Our use cases are `CreateOrderUseCase` and `GetOrderByIDUseCase`. They depend on repository interfaces defined in the domain layer but know nothing about the concrete implementations (like our database or message queue).
+---
 
-3.  **Interface Adapters (`internal/infra`)**: This layer is a set of adapters that convert data from the format most convenient for the use cases and entities, to the format most convenient for some external agency such as the Database or the Web.
-    *   **Handlers (`internal/infra/handler`)**: Handle HTTP requests, validate input, and call the appropriate use cases.
-    *   **Repositories (`internal/infra/database`)**: Concrete implementations of the repository interfaces defined in the domain layer. This is where our MySQL and mock database logic resides.
-    *   **Messaging (`internal/infra/messaging`)**: Concrete implementations of the message queue interfaces. This is where our SQS and mock message queue logic resides.
+### What is Clean Architecture?
 
-4.  **Frameworks & Drivers (`cmd/server`, `configs`, external libraries)**: This is the outermost layer, generally composed of frameworks and tools such as the Database, the Web Framework, etc. The `main.go` file, our configuration, and external libraries like `chi` (router) and the AWS SDK live here.
+Clean Architecture is a software design philosophy that separates a system into concentric layers, each with distinct responsibilities. This separation makes your codebase:
+- **Easier to test** (business logic can be tested in isolation)
+- **Easier to maintain** (changes in one layer have minimal impact on others)
+- **Easier to adapt** (swap out frameworks, databases, or interfaces with minimal changes)
 
-By following this structure, the core business logic (Entities and Use Cases) is completely independent of the web framework, database, or any other external service. This makes it incredibly easy to test the business logic in isolation and to swap out external dependencies without affecting the core of the application.
+**Layer Overview:**
+- **Entities:** Core business models and rules (no dependencies on anything else)
+- **Use Cases:** Application-specific logic and orchestration (depends only on Entities and interfaces)
+- **Interface Adapters:** Adapts data between use cases and frameworks (e.g., HTTP handlers, DB adapters)
+- **Frameworks & Drivers:** External tools and libraries (web frameworks, DBs, AWS, etc.)
 
-## Code Organization
+**The Dependency Rule:**
+> Source code dependencies always point inward. Nothing in an inner circle knows anything about outer circles.
 
-The project follows the standard Go project layout.
+This means your business logic never depends on frameworks or external services—making your application robust, portable, and testable.
+
+---
+
+## Code Structure
 
 ```
+GoCleanArch/
+├── cmd/server/main.go        # Main entry point
+├── configs/                  # YAML config and loader
+├── internal/
+│   ├── domain/
+│   │   ├── entity/           # Order entity
+│   │   └── repository/       # Repository interfaces
+│   ├── infra/
+│   │   ├── database/         # MySQL and mock DB implementations
+│   │   ├── handler/          # HTTP handlers and tests
+│   │   └── messaging/        # SQS and mock messaging
+│   └── usecase/              # Business use cases (Create, GetByID, GetAll)
+├── go.mod, go.sum            # Go modules
+├── Dockerfile                # Containerization
+└── README.md                 # This documentation
+```
+
+---
+
+## Use Case Flowcharts
+
+### Create Order Flow
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Handler
+    participant CreateOrderUseCase
+    participant MessageQueue
+    Client->>+Handler: POST /orders with JSON body
+    Handler->>Handler: Decode JSON into InputDTO
+    Handler->>+CreateOrderUseCase: Execute(input)
+    CreateOrderUseCase->>CreateOrderUseCase: Create Order entity
+    CreateOrderUseCase->>+MessageQueue: Send(order)
+    MessageQueue-->>-CreateOrderUseCase: return nil (or error)
+    CreateOrderUseCase-->>-Handler: return OutputDTO
+    Handler->>Handler: Marshal OutputDTO to JSON
+    Handler-->>-Client: 201 Created with JSON response
+```
+
+### Get Order by ID Flow
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Handler
+    participant GetOrderByIDUseCase
+    participant OrderRepository
+    Client->>+Handler: GET /orders/{orderId}
+    Handler->>Handler: Extract orderId from URL
+    Handler->>+GetOrderByIDUseCase: Execute(orderId)
+    GetOrderByIDUseCase->>+OrderRepository: GetByOrderID(orderId)
+    OrderRepository-->>-GetOrderByIDUseCase: return Order entity (or nil)
+    GetOrderByIDUseCase-->>-Handler: return OutputDTO
+    Handler->>Handler: Marshal OutputDTO to JSON
+    Handler-->>-Client: 200 OK with JSON response (or 404 Not Found)
+```
+
+### Get All Orders Flow
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Handler
+    participant GetAllOrdersUseCase
+    participant OrderRepository
+    Client->>+Handler: GET /orders
+    Handler->>+GetAllOrdersUseCase: Execute()
+    GetAllOrdersUseCase->>+OrderRepository: GetAll()
+    OrderRepository-->>-GetAllOrdersUseCase: return []Order
+    GetAllOrdersUseCase-->>-Handler: return []Order
+    Handler->>Handler: Marshal []Order to JSON
+    Handler-->>-Client: 200 OK with JSON array
+```
+
+---
+
 GoCleanArch/
 ├── api/              # OpenAPI/Swagger specs, JSON schema files. (Not used yet)
 ├── cmd/
@@ -119,55 +312,53 @@ sequenceDiagram
     OrderRepository-->>-GetOrderByIDUseCase: return Order entity (or nil)
     GetOrderByIDUseCase-->>-Handler: return OutputDTO
     Handler->>Handler: Marshal OutputDTO to JSON
-    Handler-->>-Client: 200 OK with JSON response (or 404 Not Found)
-```
 
 ## Configuration
 
-The application's behavior is controlled by the `configs/config.yaml` file. You can switch between a development environment (using mocks) and a production environment (using real AWS services) by changing the `env` property.
+The application's behavior is controlled by the `configs/config.yaml` file. You can switch between development (mocks) and production (real AWS/MySQL) by changing the `env` property:
 
--   `env: "dev"`: Runs the application with in-memory mocks for the database and message queue. No external services are required.
--   `env: "prod"`: Runs the application with a real MySQL database and AWS SQS message queue. You must provide your credentials in the `prod` section of the config file.
+- `env: "dev"`: In-memory mocks for DB and queue (default)
+- `env: "prod"`: Real MySQL and AWS SQS (provide credentials in config)
 
-You can also specify the configuration file path at runtime using the `-config` flag.
+You can specify the config file path at runtime with the `-config` flag.
+
+---
 
 ## How to Run
 
 ### Prerequisites
-- Go (version 1.18 or later)
-- (For Prod Mode) AWS Account and configured credentials
-- (For Prod Mode) MySQL Database
+- Go 1.18+
+- (Prod) AWS Account & credentials
+- (Prod) MySQL Database
+- (Optional) Docker
 
 ### Running the Server
+From the project root:
 
-Navigate to the project root directory (`D:\src\golang\CascadeProjects\GoCleanArch`) before running these commands.
+**Development Mode (default):**
+```bash
+go run ./cmd/server/main.go
+```
 
-1.  **Development Mode (default):**
-    ```bash
-    go run ./cmd/server/main.go
-    ```
-    The server will start on port 8090 using mock services.
-
-2.  **Production Mode:**
-    a.  Update `configs/config.yaml` with your AWS and database credentials.
-    b.  Set `env: "prod"` in the config file.
-    c.  Run the server:
-    ```bash
-    go run ./cmd/server/main.go
-    ```
+**Production Mode:**
+1. Edit `configs/config.yaml` with your AWS and DB credentials
+2. Set `env: "prod"`
+3. Run:
+```bash
+go run ./cmd/server/main.go
+```
 
 ### Running Tests
-
-To run the entire test suite (unit and integration tests), run the following command from the project root:
-
+Run all tests (unit + integration):
 ```bash
 go test -v ./...
 ```
 
+---
+
 ## Database Schema
 
-For production mode, you need to create the `orders` table in your MySQL database using the following schema:
-
+For production, create the `orders` table in MySQL:
 ```sql
 CREATE TABLE orders (
     id VARCHAR(255) NOT NULL PRIMARY KEY,
@@ -180,31 +371,28 @@ CREATE TABLE orders (
 );
 ```
 
+---
+
 ## Containerization with Docker
 
-This project includes a `Dockerfile` to containerize the application. This is a great way to run the application in a consistent environment.
-
-### Prerequisites
-- Docker Desktop
-
-### Building the Image
-
-To build the Docker image, run the following command from the project root:
-
+**Build the image:**
 ```bash
 docker build -t go-clean-arch-api .
 ```
 
-This will create a new Docker image with the tag `go-clean-arch-api`.
-
-### Running the Container
-
-To run the application inside a Docker container, use the following command:
-
+**Run the container:**
 ```bash
 docker run -p 8090:8090 go-clean-arch-api
 ```
 
-This will start the container and map port 8090 on your host machine to port 8090 in the container, so you can access the API at `http://localhost:8090`.
+---
 
-**Note:** The Docker container runs using the default `configs/config.yaml` file, which is set to the `dev` environment. To run in production mode, you would need to modify the `Dockerfile` or use Docker volumes to mount a production configuration file.
+## Contributing
+
+1. Fork this repo and create a feature branch
+2. Write clear, tested code (keep business logic in use cases)
+3. Follow existing code style and structure
+4. Submit a PR with a clear description
+
+---
+

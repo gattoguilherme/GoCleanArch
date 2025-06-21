@@ -12,15 +12,17 @@ import (
 
 // OrderHandler handles HTTP requests for orders.
 type OrderHandler struct {
-	CreateOrderUseCase *usecase.CreateOrderUseCase
-	GetOrderUseCase    *usecase.GetOrderByIDUseCase
+	CreateOrderUseCase    *usecase.CreateOrderUseCase
+	GetOrderUseCase       *usecase.GetOrderByIDUseCase
+	GetAllOrdersUseCase   *usecase.GetAllOrdersUseCase
 }
 
 // NewOrderHandler creates a new OrderHandler.
-func NewOrderHandler(createOrderUseCase *usecase.CreateOrderUseCase, getOrderUseCase *usecase.GetOrderByIDUseCase) *OrderHandler {
+func NewOrderHandler(createOrderUseCase *usecase.CreateOrderUseCase, getOrderUseCase *usecase.GetOrderByIDUseCase, getAllOrdersUseCase *usecase.GetAllOrdersUseCase) *OrderHandler {
 	return &OrderHandler{
-		CreateOrderUseCase: createOrderUseCase,
-		GetOrderUseCase:    getOrderUseCase,
+		CreateOrderUseCase:  createOrderUseCase,
+		GetOrderUseCase:     getOrderUseCase,
+		GetAllOrdersUseCase: getAllOrdersUseCase,
 	}
 }
 
@@ -73,9 +75,16 @@ func (h *OrderHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetAllOrders handles the retrieval of all orders.
+// @Summary Get all orders
+// @Description Retrieve all orders
+// @Tags orders
+// @Produce json
+// @Success 200 {array} entity.Order
+// @Failure 500 {object} map[string]string
+// @Router /orders [get]
 func (h *OrderHandler) GetAllOrders(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Received request to get all orders")
-	orders, err := h.GetOrderUseCase.OrderRepository.GetAll()
+	orders, err := h.GetAllOrdersUseCase.Execute()
 	if err != nil {
 		log.Printf("Error getting all orders: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)

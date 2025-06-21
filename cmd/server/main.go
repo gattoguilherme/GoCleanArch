@@ -77,9 +77,10 @@ func main() {
 	// Use Cases
 	createOrderUseCase := usecase.NewCreateOrderUseCase(orderMessageQueue)
 	getOrderUseCase := usecase.NewGetOrderByIDUseCase(orderRepo)
+	getAllOrdersUseCase := usecase.NewGetAllOrdersUseCase(orderRepo)
 
 	// Handlers
-	orderHandler := handler.NewOrderHandler(createOrderUseCase, getOrderUseCase)
+	orderHandler := handler.NewOrderHandler(createOrderUseCase, getOrderUseCase, getAllOrdersUseCase)
 
 	// Router
 	r := chi.NewRouter()

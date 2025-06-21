@@ -1,4 +1,4 @@
-
+package usecase
 
 import (
 	"GoCleanArch/internal/domain/entity"

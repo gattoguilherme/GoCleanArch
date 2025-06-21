@@ -39,11 +39,30 @@ var _ = Describe("OrderHandler", func() {
 		prePopulatedOrder := &entity.Order{OrderID: 123, Status: "Complete", Paid: true}
 		orderRepo.Save(prePopulatedOrder)
 
-		orderHandler = handler.NewOrderHandler(createOrderUseCase, getOrderUseCase)
+		getAllOrdersUseCase := usecase.NewGetAllOrdersUseCase(orderRepo)
+		orderHandler = handler.NewOrderHandler(createOrderUseCase, getOrderUseCase, getAllOrdersUseCase)
 
 		router = chi.NewRouter()
 		router.Post("/orders", orderHandler.CreateOrder)
 		router.Get("/orders/{orderId}", orderHandler.GetOrder)
+	})
+
+	Describe("GET /orders", func() {
+		Context("when there are orders", func() {
+			It("should return 200 OK and the list of orders", func() {
+				req := httptest.NewRequest("GET", "/orders", nil)
+				rr := httptest.NewRecorder()
+
+				router.ServeHTTP(rr, req)
+
+				Expect(rr.Code).To(Equal(http.StatusOK))
+				var response []entity.Order
+				err := json.Unmarshal(rr.Body.Bytes(), &response)
+				Expect(err).To(BeNil())
+				Expect(len(response)).To(BeNumerically(">=", 1))
+				Expect(response[0].OrderID).To(Equal(123))
+			})
+		})
 	})
 
 	Describe("POST /orders", func() {
