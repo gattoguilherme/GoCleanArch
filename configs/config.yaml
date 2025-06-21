@@ -1,0 +1,14 @@
+env: "dev" # default environment
+
+server:
+  port: ":8090"
+
+dev: {}
+
+prod:
+  aws:
+    region: "us-east-1"
+    sqs_queue_url: "your-sqs-queue-url"
+  db:
+    driver: "mysql"
+    dsn: "user:password@tcp(your-rds-endpoint:3306)/database"
